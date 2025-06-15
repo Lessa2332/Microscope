@@ -1,0 +1,1185 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Симулятор Мікроскопа</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --girl-primary: #ff99cc;
+            --girl-secondary: #cc99ff;
+            --girl-accent: #ffccff;
+            --boy-primary: #33ccff;
+            --boy-secondary: #33cc99;
+            --boy-accent: #99ffcc;
+            --text: #333;
+            --button-text: #fff;
+            --min-font-size: clamp(14px, 3vw, 16px);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Comic Neue', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-x: hidden;
+            background-size: cover;
+            background-position: center;
+            font-size: var(--min-font-size);
+        }
+
+        .girl-theme {
+            background-image: linear-gradient(135deg, #ffccff 0%, #ffb3d9 50%, #e6ccff 100%);
+        }
+
+        .boy-theme {
+            background-image: linear-gradient(135deg, #66ccff 0%, #33cc99 50%, #99ffcc 100%);
+        }
+
+        .welcome-screen, .simulator-screen {
+            background: none;
+        }
+
+        .certificate-screen {
+            background-image: linear-gradient(135deg, #f8c1d9 0%, #d8b4e2 100%);
+        }
+
+        .girl-theme .certificate-screen {
+            background-image: linear-gradient(135deg, #f8c1d9 0%, #e6ccff 100%);
+        }
+
+        .boy-theme .certificate-screen {
+            background-image: linear-gradient(135deg, #66ccff 0%, #99ffcc 100%);
+        }
+
+        .welcome-screen, .simulator-screen, .certificate-screen {
+            display: none;
+            width: 100%;
+            max-width: 1200px;
+            padding: clamp(8px, 2vw, 16px);
+            margin: clamp(8px, 2vw, 16px) auto;
+        }
+
+            .welcome-screen.active, .simulator-screen.active, .certificate-screen.active {
+                display: flex;
+                flex-direction: column;
+                min-height: 100vh;
+            }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 24px;
+            padding: clamp(16px, 4vw, 32px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+            max-width: 100%;
+            flex-grow: 1;
+        }
+
+        .girl-theme {
+            --primary: var(--girl-primary);
+            --secondary: var(--girl-secondary);
+            --accent: var(--girl-accent);
+        }
+
+        .boy-theme {
+            --primary: var(--boy-primary);
+            --secondary: var(--boy-secondary);
+            --accent: var(--boy-accent);
+        }
+
+        button {
+            background-color: var(--secondary);
+            color: var(--button-text);
+            padding: clamp(12px, 3vw, 16px) clamp(24px, 5vw, 32px);
+            border: none;
+            border-radius: 16px;
+            font-size: var(--min-font-size);
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+            button:hover {
+                background-color: var(--accent);
+                transform: scale(1.1);
+            }
+
+        .lang-button, .theme-button {
+            background-color: var(--secondary);
+            padding: clamp(8px, 2vw, 12px) clamp(16px, 3vw, 24px);
+            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+        }
+
+            .lang-button.active, .theme-button.active {
+                background-color: var(--accent);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            }
+
+        input[type="text"] {
+            padding: clamp(12px, 3vw, 16px);
+            border: 3px solid var(--secondary);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 350px;
+            font-size: var(--min-font-size);
+            font-family: 'Comic Neue', sans-serif;
+        }
+
+        .microscope-container {
+            position: relative;
+            width: 100%;
+            max-width: clamp(320px, 50vw, 600px);
+            aspect-ratio: 1 / 1;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+            margin: 0 auto;
+            border-radius: 20px;
+        }
+
+        @supports not (aspect-ratio: 1 / 1) {
+            .microscope-container {
+                height: 0;
+                padding-bottom: 100%;
+            }
+        }
+
+        .microscope-view {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 70%;
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            overflow: hidden;
+            transform: translate(-50%, -50%);
+            cursor: move;
+            touch-action: none;
+            border: 5px solid var(--primary);
+        }
+
+        .specimen-image {
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            transition: opacity 0.3s ease, transform 0.1s ease;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .reticle {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .move-buttons {
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: clamp(6px, 1.5vw, 8px);
+            width: fit-content;
+            margin-top: clamp(12px, 3vw, 16px);
+        }
+
+        .move-button {
+            background-color: var(--secondary);
+            color: var(--button-text);
+            padding: clamp(8px, 2vw, 12px);
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            width: clamp(48px, 10vw, 60px);
+            height: clamp(48px, 10vw, 60px);
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .specimen-label {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px);
+            border-radius: 10px;
+            font-size: clamp(0.85rem, 2.5vw, 1rem);
+            font-weight: bold;
+            text-align: center;
+            z-index: 15;
+            color: var(--primary);
+        }
+
+        .slide-buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(12px, 3vw, 16px);
+            z-index: 20;
+            position: relative;
+        }
+
+        .slide-button {
+            width: clamp(80px, 20vw, 120px);
+            height: clamp(40px, 10vw, 60px);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+            .slide-button:hover, .slide-button:active {
+                transform: scale(1.1);
+            }
+
+            .slide-button.active {
+                border: 4px solid var(--accent);
+            }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: flex-start;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+            .modal.active {
+                display: flex;
+            }
+
+        .modal-content {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: clamp(16px, 4vw, 32px);
+            border-radius: 24px;
+            max-width: 90vw;
+            width: clamp(300px, 80vw, 700px);
+            max-height: 90vh;
+            overflow-y: auto;
+            text-align: center;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .certificate {
+            background-image: url('https://i.postimg.cc/9XN9d57w/fon_01.jpg');
+            background-size: cover;
+            background-position: center;
+            padding: clamp(24px, 6vw, 40px);
+            border: 10px solid var(--primary);
+            border-radius: 24px;
+            text-align: center;
+            max-width: clamp(300px, 90vw, 650px);
+            min-height: clamp(400px, 120vw, 900px);
+            margin: 0 auto;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        @media (max-width: 400px) {
+            h1, h2 {
+                font-size: clamp(1.25rem, 4vw, 1.5rem);
+            }
+
+            .microscope-container {
+                max-width: clamp(240px, 80vw, 280px);
+            }
+
+            .specimen-label {
+                font-size: clamp(0.7rem, 2vw, 0.85rem);
+                padding: clamp(4px, 1vw, 6px) clamp(8px, 2vw, 12px);
+            }
+
+            .move-button {
+                width: clamp(40px, 8vw, 48px);
+                height: clamp(40px, 8vw, 48px);
+                font-size: clamp(0.9rem, 2.5vw, 1.25rem);
+            }
+
+            .slide-button {
+                width: clamp(60px, 15vw, 80px);
+                height: clamp(30px, 7.5vw, 40px);
+            }
+
+            .container {
+                padding: clamp(8px, 2vw, 12px);
+            }
+
+            .slide-buttons-container {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: clamp(6px, 1.5vw, 8px);
+                margin-bottom: clamp(6px, 1.5vw, 8px);
+            }
+
+            .main-content {
+                flex-direction: column;
+                align-items: stretch;
+                gap: clamp(8px, 2vw, 12px);
+            }
+
+            .controls-container {
+                max-width: 100%;
+                padding: 0 clamp(6px, 1.5vw, 8px);
+            }
+
+            .certificate {
+                max-width: 100%;
+                min-height: clamp(300px, 100vw, 500px);
+                padding: clamp(16px, 4vw, 24px);
+            }
+
+            button {
+                padding: clamp(8px, 2vw, 12px) clamp(16px, 3vw, 24px);
+                font-size: clamp(0.9rem, 2.5vw, 1rem);
+            }
+
+            input[type="text"] {
+                padding: clamp(8px, 2vw, 12px);
+                font-size: clamp(0.9rem, 2.5vw, 1rem);
+                max-width: 280px;
+            }
+        }
+
+        @media (min-width: 401px) and (max-width: 640px) {
+            h1, h2 {
+                font-size: clamp(1.5rem, 5vw, 1.75rem);
+            }
+
+            .microscope-container {
+                max-width: clamp(280px, 80vw, 320px);
+            }
+
+            .specimen-label {
+                font-size: clamp(0.8rem, 2.5vw, 0.85rem);
+                padding: clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px);
+            }
+
+            .move-button {
+                width: clamp(48px, 10vw, 60px);
+                height: clamp(48px, 10vw, 60px);
+                font-size: clamp(1rem, 3vw, 1.25rem);
+            }
+
+            .slide-button {
+                width: clamp(80px, 20vw, 100px);
+                height: clamp(40px, 10vw, 50px);
+            }
+
+            .container {
+                padding: clamp(12px, 3vw, 16px);
+            }
+
+            .slide-buttons-container {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: clamp(8px, 2vw, 10px);
+                margin-bottom: clamp(8px, 2vw, 12px);
+            }
+
+            .main-content {
+                flex-direction: column;
+                align-items: stretch;
+                gap: clamp(12px, 3vw, 16px);
+            }
+
+            .controls-container {
+                max-width: 100%;
+                padding: 0 clamp(8px, 2vw, 12px);
+            }
+
+            .certificate {
+                max-width: 100%;
+                min-height: clamp(400px, 100vw, 600px);
+                padding: clamp(20px, 5vw, 28px);
+            }
+
+            button {
+                padding: clamp(10px, 2.5vw, 14px) clamp(20px, 4vw, 28px);
+                font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+            }
+
+            input[type="text"] {
+                padding: clamp(10px, 2.5vw, 14px);
+                font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+            }
+        }
+
+        @media (min-width: 641px) and (max-width: 1024px) {
+            h1, h2 {
+                font-size: clamp(1.75rem, 4vw, 2rem);
+            }
+
+            .microscope-container {
+                max-width: clamp(320px, 50vw, 400px);
+            }
+
+            .specimen-label {
+                font-size: clamp(0.85rem, 2.5vw, 0.9rem);
+            }
+
+            .slide-button {
+                width: clamp(100px, 20vw, 120px);
+                height: clamp(50px, 10vw, 60px);
+            }
+
+            .container {
+                padding: clamp(16px, 4vw, 24px);
+            }
+
+            .slide-buttons-container {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: clamp(10px, 2.5vw, 12px);
+                margin-bottom: clamp(12px, 3vw, 16px);
+            }
+
+            .main-content {
+                gap: clamp(16px, 4vw, 20px);
+            }
+
+            .certificate {
+                max-width: clamp(400px, 80vw, 550px);
+                min-height: clamp(500px, 100vw, 750px);
+            }
+
+            button {
+                padding: clamp(12px, 3vw, 14px) clamp(24px, 5vw, 28px);
+                font-size: clamp(1rem, 2.5vw, 1.1rem);
+            }
+        }
+
+        @media (min-width: 1025px) {
+            h1, h2 {
+                font-size: clamp(2rem, 4vw, 2.5rem);
+            }
+
+            .microscope-container {
+                max-width: 600px;
+            }
+
+            .specimen-label {
+                font-size: 1rem;
+            }
+
+            .certificate {
+                max-width: 650px;
+                min-height: 900px;
+            }
+
+            .main-content {
+                flex-direction: row;
+                gap: clamp(20px, 4vw, 24px);
+            }
+        }
+    </style>
+</head>
+<body class="boy-theme">
+    <div class="welcome-screen active">
+        <div class="container">
+            <h1 id="welcome-title" class="text-3xl font-bold text-[var(--primary)]">Welcome to the Microscope Adventure!</h1>
+            <p id="welcome-text" class="text-lg text-[var(--text)]">Choose your language, theme, and enter your name to start!</p>
+            <div class="flex flex-col gap-4 items-center">
+                <p id="lang-text" class="text-md font-bold text-[var(--text)]">Choose your language:</p>
+                <div class="flex gap-4 flex-wrap justify-center">
+                    <button id="lang-en" class="lang-button active" data-lang="en">English</button>
+                    <button id="lang-ua" class="lang-button" data-lang="ua">Українська</button>
+                </div>
+                <p id="theme-text" class="text-md font-bold text-[var(--text)]">Choose your theme:</p>
+                <div class="flex gap-4">
+                    <button id="theme-girl" class="theme-button" data-theme="girl">Girl Theme</button>
+                    <button id="theme-boy" class="theme-button active" data-theme="boy">Boy Theme</button>
+                </div>
+                <input type="text" id="child-name" placeholder="Your Name" maxlength="20" class="mt-4">
+                <button id="start-button" class="mt-4">Start Adventure!</button>
+            </div>
+            <p class="text-md text-[var(--text)] mt-4">Автор Бохонок Олеся</p>
+            <button id="youtube-button" class="mt-2">Visit My YouTube</button>
+        </div>
+    </div>
+
+    <div class="simulator-screen">
+        <div class="container">
+            <div class="flex justify-between items-center mb-4 flex-col sm:flex-row">
+                <h1 id="title" class="text-3xl font-bold text-[var(--primary)]">🔬 Microscope</h1>
+                <div class="flex gap-2">
+                    <button id="instructions-button">Instructions</button>
+                    <button id="complete-lab" disabled>Lab Completed!</button>
+                </div>
+            </div>
+            <div class="main-content flex flex-col items-center space-y-6 md:flex-row md:space-y-0 md:space-x-6">
+                <div class="slide-buttons-container">
+                    <img class="slide-button active" data-slide="1" src="https://i.postimg.cc/15RHphCw/slide1.png" alt="Slide 1" title="Frog's Blood">
+                    <img class="slide-button" data-slide="2" src="https://i.postimg.cc/xTsP5xh7/slide2.png" alt="Slide 2" title="Simple Columnar Epithelium">
+                    <img class="slide-button" data-slide="3" src="https://i.postimg.cc/qvSxVtkx/slide3.png" alt="Slide 3" title="Human Artery, Vein, Nerve">
+                </div>
+                <div class="microscope-container">
+                    <div class="specimen-label" id="specimen-label"></div>
+                    <div class="microscope-view">
+                        <img id="specimen-image" class="specimen-image" src="https://i.postimg.cc/66nYy7sb/2025-06-12-234612.png" alt="Specimen">
+                        <img id="reticle" class="reticle" src="https://i.postimg.cc/j2c4GZ5D/reticle.png" alt="Reticle">
+                    </div>
+                </div>
+                <div class="controls-container flex flex-col space-y-4 w-full max-width-xs">
+                    <div>
+                        <label id="specimen-focus-label" for="specimen-focus" class="block font-bold text-[var(--primary)] text-sm"></label>
+                        <input id="specimen-focus" type="range" min="0" max="10" value="5" class="w-full h-3">
+                    </div>
+                    <div>
+                        <label id="reticle-focus-label" for="reticle-focus" class="block font-bold text-[var(--primary)] text-sm"></label>
+                        <input id="reticle-focus" type="range" min="0" max="1" step="0.01" value="0.5" class="w-full h-3">
+                    </div>
+                    <div>
+                        <label id="lamp-intensity-label" for="lamp-intensity" class="block font-bold text-[var(--primary)] text-sm"></label>
+                        <input id="lamp-intensity" type="range" min="0.1" max="2" step="0.01" value="1.05" class="w-full h-3">
+                    </div>
+                    <div>
+                        <label for="move-buttons" class="block font-bold text-[var(--primary)] text-sm"></label>
+                        <div class="move-buttons mx-auto">
+                            <button class="move-button move-up" data-move="up">↑</button>
+                            <button class="move-button move-down" data-move="down">↓</button>
+                            <button class="move-button move-left" data-move="left">←</button>
+                            <button class="move-button move-right" data-move="right">→</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="magnification" class="block font-bold text-[var(--primary)] text-sm"></label>
+                        <div class="flex gap-2">
+                            <button class="magnification-button" data-mag="3x">3x</button>
+                            <button class="magnification-button" data-mag="10x">10x</button>
+                            <button class="magnification-button" data-mag="40x">40x</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p class="text-md text-[var(--text)] mt-4">Автор Бохонок Олеся</p>
+            <button id="youtube-button" class="mt-2">Visit My YouTube</button>
+        </div>
+    </div>
+
+    <div class="certificate-screen">
+        <div class="container">
+            <h2 id="certificate-title" class="text-2xl font-bold text-[var(--primary)]">Young Explorer Certificate</h2>
+            <div class="certificate" id="certificate">
+                <h3 id="certificate-name" class="text-xl font-bold text-[var(--text)]"></h3>
+                <p id="certificate-text" class="text-md text-[var(--text)]"></p>
+                <p id="certificate-date" class="text-md text-[var(--text)]">June 14, 2025</p>
+            </div>
+            <div class="flex justify-center gap-4 mt-6 flex-wrap">
+                <button id="download-certificate-png">Download Certificate (PNG)</button>
+                <button id="download-certificate-html">Download Certificate (HTML)</button>
+                <button id="restart-adventure">Start New Adventure</button>
+            </div>
+            <p class="text-md text-[var(--text)] mt-4">Автор Бохонок Олеся</p>
+            <button id="youtube-button" class="mt-2">Visit My YouTube</button>
+        </div>
+    </div>
+
+    <div class="modal" id="instructions-modal">
+        <div class="modal-content">
+            <h2 id="instructions-title" class="text-xl font-bold text-[var(--primary)]"></h2>
+            <ol id="instructions-list" class="text-left list-decimal pl-6 text-[var(--text)]"></ol>
+            <button id="close-instructions">Close</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const specimens = {
+                1: {
+                    '3x': 'https://i.postimg.cc/66nYy7sb/2025-06-12-234612.png',
+                    '10x': 'https://i.postimg.cc/mg2wX8PK/2025-06-12-234625.png',
+                    '40x': 'https://i.postimg.cc/yxyd2hDb/photo-2025-06-09-21-13-43-3.jpg'
+                },
+                2: {
+                    '3x': 'https://i.postimg.cc/Rh6dRFqh/Знімок_екрана_2025-06-12_234900.png',
+                    '10x': 'https://i.postimg.cc/d1Snrdsg/Знімок_екрана_2025-06-12_234912.png',
+                    '40x': 'https://i.postimg.cc/QMh63hYY/Знімок_екрана_2025-06-12_234920.png'
+                },
+                3: {
+                    '3x': 'https://i.postimg.cc/cLHRMCjS/2025-06-12-235513.png',
+                    '10x': 'https://i.postimg.cc/7hk1gVvs/2025-06-12-235524.png',
+                    '40x': 'https://i.postimg.cc/65zq00J7/photo-2025-06-09-21-13-44.jpg'
+                }
+            };
+
+            const specimenLabels = {
+                1: { ua: 'Кров жаби', en: "Frog's Blood" },
+                2: { ua: 'Простий стовпчастий епітелій', en: 'Simple Columnar Epithelium' },
+                3: { ua: 'Артерія, вена, нерв людини', en: 'Human Artery, Vein, Nerve' }
+            };
+
+            const labels = {
+                ua: {
+                    welcomeTitle: 'Ласкаво просимо до пригоди з мікроскопом!',
+                    welcomeText: 'Обери мову, тему та введи своє ім’я!',
+                    langText: 'Оберіть мову:',
+                    themeText: 'Оберіть тему:',
+                    startButton: 'Почати пригоду!',
+                    title: '🔬 Пригода з мікроскопом',
+                    specimenFocus: '🧪 Фокус зразка',
+                    reticleFocus: '📏 Фокус шкали',
+                    lampIntensity: '💡 Яскравість світла',
+                    moveControl: '🕹️ Керування рухом',
+                    magnification: '🔍 Збільшення',
+                    instructionsButton: 'Інструкція',
+                    completeLab: 'Лабораторну роботу виконано!',
+                    instructionsTitle: 'Як досліджувати зразки',
+                    instructions: [
+                        '{name}, вибери зразок, клікнувши на картинку ліворуч.',
+                        'Зміни збільшення (3x, 10x, 40x), щоб побачити деталі.',
+                        'Налаштуй фокус зразка та шкали за допомогою повзунків.',
+                        'Зміни яскравість світла, щоб краще бачити.',
+                        'Переміщуй зразок кнопками або мишею.',
+                        'Досліди всі три зразки, щоб завершити лабораторну роботу!'
+                    ],
+                    certificateTitle: 'Сертифікат юного дослідника',
+                    certificateText: {
+                        girl: ['Вітаємо, {name}!', 'Ти успішно дослідила зразки під мікроскопом,', 'і стала Юною Дослідницею!'],
+                        boy: ['Вітаємо, {name}!', 'Ти успішно дослідив зразки під мікроскопом,', 'і став Юним Дослідником!']
+                    },
+                    certificateDate: '14 червня 2025',
+                    downloadCertificatePng: 'Завантажити сертифікат (PNG)',
+                    downloadCertificateHtml: 'Завантажити сертифікат (HTML)',
+                    restartAdventure: 'Нова пригода',
+                    closeInstructions: 'Закрити',
+                    youtubeButton: 'Відвідай мій YouTube',
+                    certificateLabel: 'Сертифікат'
+                },
+                en: {
+                    welcomeTitle: 'Welcome to the Microscope Adventure!',
+                    welcomeText: 'Choose your language, theme, and enter your name!',
+                    langText: 'Choose your language:',
+                    themeText: 'Choose your theme:',
+                    startButton: 'Start Adventure!',
+                    title: '🔬 Microscope',
+                    specimenFocus: '🧪 Specimen Focus',
+                    reticleFocus: '📏 Reticle Focus',
+                    lampIntensity: '💡 Lamp Intensity',
+                    moveControl: '🕹️ Movement Control',
+                    magnification: '🔍 Magnification',
+                    instructionsButton: 'Instructions',
+                    completeLab: 'Lab Completed!',
+                    instructionsTitle: 'How to Explore Specimens',
+                    instructions: [
+                        '{name}, choose a specimen by clicking the images on the left.',
+                        'Change magnification (3x, 10x, 40x) to see details.',
+                        'Adjust specimen and reticle focus using the sliders.',
+                        'Change lamp brightness for better visibility.',
+                        'Move the specimen using buttons or mouse.',
+                        'Explore all three specimens to complete the lab!'
+                    ],
+                    certificateTitle: 'Young Explorer Certificate',
+                    certificateText: {
+                        girl: ['Congratulations, {name}!', 'You have successfully explored specimens under the microscope,', 'and become a Young Explorer!'],
+                        boy: ['Congratulations, {name}!', 'You have successfully explored specimens under the microscope,', 'and become a Young Explorer!']
+                    },
+                    certificateDate: 'June 14, 2025',
+                    downloadCertificatePng: 'Download Certificate (PNG)',
+                    downloadCertificateHtml: 'Download Certificate (HTML)',
+                    restartAdventure: 'Start New Adventure',
+                    closeInstructions: 'Close',
+                    youtubeButton: 'Visit My YouTube',
+                    certificateLabel: 'Certificate'
+                }
+            };
+
+            let state = {
+                lang: 'en',
+                theme: 'boy',
+                childName: '',
+                specimen: 1,
+                magnification: '3x',
+                specimenFocus: 5,
+                reticleFocus: 0.5,
+                lampIntensity: 1.05,
+                drag: { isDragging: false, startX: 0, startY: 0, translateX: 0, translateY: 0 },
+                viewedSpecimens: new Set([1]),
+                screen: 'welcome'
+            };
+
+            const elements = {
+                welcomeScreen: document.querySelector('.welcome-screen'),
+                simulatorScreen: document.querySelector('.simulator-screen'),
+                certificateScreen: document.querySelector('.certificate-screen'),
+                welcomeTitle: document.getElementById('welcome-title'),
+                welcomeText: document.getElementById('welcome-text'),
+                langText: document.getElementById('lang-text'),
+                themeText: document.getElementById('theme-text'),
+                childNameInput: document.getElementById('child-name'),
+                startButton: document.getElementById('start-button'),
+                langEn: document.getElementById('lang-en'),
+                langUa: document.getElementById('lang-ua'),
+                themeGirl: document.getElementById('theme-girl'),
+                themeBoy: document.getElementById('theme-boy'),
+                title: document.getElementById('title'),
+                specimenImage: document.getElementById('specimen-image'),
+                reticle: document.getElementById('reticle'),
+                specimenLabel: document.getElementById('specimen-label'),
+                specimenFocusLabel: document.getElementById('specimen-focus-label'),
+                reticleFocusLabel: document.getElementById('reticle-focus-label'),
+                lampIntensityLabel: document.getElementById('lamp-intensity-label'),
+                specimenFocus: document.getElementById('specimen-focus'),
+                reticleFocus: document.getElementById('reticle-focus'),
+                lampIntensity: document.getElementById('lamp-intensity'),
+                microscopeView: document.querySelector('.microscope-view'),
+                instructionsButton: document.getElementById('instructions-button'),
+                completeLabButton: document.getElementById('complete-lab'),
+                instructionsModal: document.getElementById('instructions-modal'),
+                instructionsTitle: document.getElementById('instructions-title'),
+                instructionsList: document.getElementById('instructions-list'),
+                closeInstructions: document.getElementById('close-instructions'),
+                certificate: document.getElementById('certificate'),
+                certificateTitle: document.getElementById('certificate-title'),
+                certificateName: document.getElementById('certificate-name'),
+                certificateText: document.getElementById('certificate-text'),
+                certificateDate: document.getElementById('certificate-date'),
+                downloadCertificatePng: document.getElementById('download-certificate-png'),
+                downloadCertificateHtml: document.getElementById('download-certificate-html'),
+                restartAdventure: document.getElementById('restart-adventure'),
+                youtubeButton: document.getElementById('youtube-button')
+            };
+
+            const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+            const debounce = (func, wait) => {
+                let timeout;
+                return (...args) => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func(...args), wait);
+                };
+            };
+
+            const updateScreen = () => {
+                if (elements.welcomeScreen) elements.welcomeScreen.classList.toggle('active', state.screen === 'welcome');
+                if (elements.simulatorScreen) elements.simulatorScreen.classList.toggle('active', state.screen === 'simulator');
+                if (elements.certificateScreen) elements.certificateScreen.classList.toggle('active', state.screen === 'certificate');
+                document.body.classList.remove('girl-theme', 'boy-theme');
+                document.body.classList.add(`${state.theme}-theme`);
+            };
+
+            const updateLabels = () => {
+                if (elements.welcomeTitle) elements.welcomeTitle.textContent = labels[state.lang].welcomeTitle;
+                if (elements.welcomeText) elements.welcomeText.textContent = labels[state.lang].welcomeText;
+                if (elements.langText) elements.langText.textContent = labels[state.lang].langText;
+                if (elements.themeText) elements.themeText.textContent = labels[state.lang].themeText;
+                if (elements.startButton) elements.startButton.textContent = labels[state.lang].startButton;
+                if (elements.langEn) elements.langEn.textContent = 'English';
+                if (elements.langUa) elements.langUa.textContent = 'Українська';
+                if (elements.themeGirl) elements.themeGirl.textContent = state.lang === 'ua' ? 'Дівчинка' : 'Girl Theme';
+                if (elements.themeBoy) elements.themeBoy.textContent = state.lang === 'ua' ? 'Хлопчик' : 'Boy Theme';
+                if (elements.title) elements.title.textContent = labels[state.lang].title;
+                if (elements.specimenFocusLabel) elements.specimenFocusLabel.textContent = labels[state.lang].specimenFocus;
+                if (elements.reticleFocusLabel) elements.reticleFocusLabel.textContent = labels[state.lang].reticleFocus;
+                if (elements.lampIntensityLabel) elements.lampIntensityLabel.textContent = labels[state.lang].lampIntensity;
+                if (document.querySelector('label[for="move-buttons"]')) document.querySelector('label[for="move-buttons"]').textContent = labels[state.lang].moveControl;
+                if (document.querySelector('label[for="magnification"]')) document.querySelector('label[for="magnification"]').textContent = labels[state.lang].magnification;
+                if (elements.instructionsButton) elements.instructionsButton.textContent = labels[state.lang].instructionsButton;
+                if (elements.completeLabButton) {
+                    elements.completeLabButton.textContent = labels[state.lang].completeLab;
+                    elements.completeLabButton.disabled = state.viewedSpecimens.size < 3;
+                }
+                if (elements.specimenLabel) elements.specimenLabel.textContent = specimenLabels[state.specimen][state.lang];
+                if (elements.youtubeButton) elements.youtubeButton.textContent = labels[state.lang].youtubeButton;
+                updateInstructions();
+            };
+
+            const updateInstructions = () => {
+                if (elements.instructionsTitle) elements.instructionsTitle.textContent = labels[state.lang].instructionsTitle;
+                if (elements.instructionsList) {
+                    elements.instructionsList.innerHTML = labels[state.lang].instructions
+                        .map(step => `<li>${step.replace('{name}', state.childName || 'Explorer')}</li>`)
+                        .join('');
+                }
+                if (elements.closeInstructions) elements.closeInstructions.textContent = labels[state.lang].closeInstructions;
+            };
+
+            const updateSpecimenImage = () => {
+                if (!elements.specimenImage) return;
+                elements.specimenImage.style.opacity = '0';
+                const src = specimens[state.specimen][state.magnification] || 'https://via.placeholder.com/600';
+                elements.specimenImage.src = src;
+                elements.specimenImage.onerror = () => {
+                    elements.specimenImage.src = 'https://via.placeholder.com/600';
+                    console.warn(`Failed to load image: ${src}`);
+                };
+                resetPosition();
+                if (elements.specimenLabel) elements.specimenLabel.textContent = specimenLabels[state.specimen][state.lang];
+                setTimeout(() => { if (elements.specimenImage) elements.specimenImage.style.opacity = '1'; }, 300);
+            };
+
+            const updateFilters = () => {
+                if (elements.specimenImage) {
+                    elements.specimenImage.style.filter = `blur(${state.specimenFocus}px) brightness(${state.lampIntensity})`;
+                }
+                if (elements.reticle) {
+                    elements.reticle.style.opacity = state.reticleFocus;
+                }
+            };
+
+            const updatePosition = () => {
+                if (elements.specimenImage) {
+                    elements.specimenImage.style.transform = `translate(-50%, -50%) translate(${state.drag.translateX}px, ${state.drag.translateY}px)`;
+                }
+            };
+
+            const resetPosition = () => {
+                state.drag.translateX = 0;
+                state.drag.translateY = 0;
+                updatePosition();
+            };
+
+            const startDragging = (x, y) => {
+                state.drag.isDragging = true;
+                state.drag.startX = x;
+                state.drag.startY = y;
+            };
+
+            const stopDragging = () => {
+                state.drag.isDragging = false;
+                resetPosition();
+            };
+
+            const dragImage = (x, y) => {
+                if (!state.drag.isDragging || !elements.microscopeView) return;
+                const maxMove = elements.microscopeView.offsetWidth * 0.25;
+                const deltaX = x - state.drag.startX;
+                const deltaY = y - state.drag.startY;
+                state.drag.translateX = clamp(state.drag.translateX + deltaX, -maxMove, maxMove);
+                state.drag.translateY = clamp(state.drag.translateY + deltaY, -maxMove, maxMove);
+                updatePosition();
+                state.drag.startX = x;
+                state.drag.startY = y;
+            };
+
+            const moveImage = (direction) => {
+                if (!elements.microscopeView) return;
+                const step = 10;
+                const maxMove = elements.microscopeView.offsetWidth * 0.25;
+                switch (direction) {
+                    case 'up':
+                        state.drag.translateY = clamp(state.drag.translateY - step, -maxMove, maxMove);
+                        break;
+                    case 'down':
+                        state.drag.translateY = clamp(state.drag.translateY + step, -maxMove, maxMove);
+                        break;
+                    case 'left':
+                        state.drag.translateX = clamp(state.drag.translateX - step, -maxMove, maxMove);
+                        break;
+                    case 'right':
+                        state.drag.translateX = clamp(state.drag.translateX + step, -maxMove, maxMove);
+                        break;
+                }
+                updatePosition();
+            };
+
+            const handleSlideChange = (e) => {
+                state.specimen = parseInt(e.target.dataset.slide);
+                state.viewedSpecimens.add(state.specimen);
+                document.querySelectorAll('.slide-button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                updateSpecimenImage();
+                updateLabels();
+            };
+
+            const handleMagnificationChange = (e) => {
+                state.magnification = e.target.dataset.mag;
+                document.querySelectorAll('.magnification-button').forEach(btn => {
+                    btn.classList.toggle('bg-[var(--accent)]', btn.dataset.mag === state.magnification);
+                    btn.classList.toggle('bg-[var(--secondary)]', btn.dataset.mag !== state.magnification);
+                });
+                updateSpecimenImage();
+            };
+
+            const handleLanguageChange = (e) => {
+                state.lang = e.target.dataset.lang;
+                updateLabels();
+                document.querySelectorAll('.lang-button').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.lang === state.lang);
+                });
+                updateScreen();
+            };
+
+            const handleThemeChange = (e) => {
+                state.theme = e.target.dataset.theme;
+                updateLabels();
+                updateScreen();
+                document.querySelectorAll('.theme-button').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.theme === state.theme);
+                });
+            };
+
+            const handleSliderChange = debounce(() => {
+                if (elements.specimenFocus) state.specimenFocus = parseFloat(elements.specimenFocus.value);
+                if (elements.reticleFocus) state.reticleFocus = parseFloat(elements.reticleFocus.value);
+                if (elements.lampIntensity) state.lampIntensity = parseFloat(elements.lampIntensity.value);
+                updateFilters();
+            }, 50);
+
+            const showInstructions = () => {
+                if (elements.instructionsModal) elements.instructionsModal.classList.add('active');
+            };
+
+            const hideInstructions = () => {
+                if (elements.instructionsModal) elements.instructionsModal.classList.remove('active');
+            };
+
+            const generateCertificate = () => {
+                if (elements.certificateTitle) elements.certificateTitle.textContent = labels[state.lang].certificateTitle;
+                if (elements.certificateName) elements.certificateName.textContent = labels[state.lang].certificateLabel;
+                if (elements.certificateText) {
+                    const textLines = labels[state.lang].certificateText[state.theme];
+                    elements.certificateText.innerHTML = `
+                        <p>${textLines[0].replace('{name}', state.childName || 'Explorer')}</p>
+                        <p>${textLines[1]}</p>
+                        <p>${textLines[2]}</p>
+                    `;
+                }
+                if (elements.certificateDate) elements.certificateDate.textContent = labels[state.lang].certificateDate;
+                if (elements.downloadCertificatePng) elements.downloadCertificatePng.textContent = labels[state.lang].downloadCertificatePng;
+                if (elements.downloadCertificateHtml) elements.downloadCertificateHtml.textContent = labels[state.lang].downloadCertificateHtml;
+                if (elements.restartAdventure) elements.restartAdventure.textContent = labels[state.lang].restartAdventure;
+            };
+
+            const downloadCertificateHtml = () => {
+                const textLines = labels[state.lang].certificateText[state.theme];
+                const certificateHTML = `
+                    <!DOCTYPE html>
+                    <html lang="${state.lang}">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>${labels[state.lang].certificateTitle}</title>
+                        <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
+                        <style>
+                            body {
+                                font-family: 'Comic Neue', cursive;
+                                margin: 0;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                min-height: 100vh;
+                                background-image: url('https://i.postimg.cc/9XN9d57w/fon_01.jpg');
+                                background-size: cover;
+                                font-size: clamp(14px, 3vw, 16px);
+                            }
+                            .certificate {
+                                background-image: url('https://i.postimg.cc/9XN9d57w/fon_01.jpg');
+                                background-size: cover;
+                                background-position: center;
+                                padding: clamp(20px, 5vw, 40px);
+                                border: 10px solid ${state.theme === 'girl' ? '#ff99cc' : '#33ccff'};
+                                border-radius: 24px;
+                                text-align: center;
+                                width: clamp(300px, 90vw, 650px);
+                                min-height: clamp(400px, 120vw, 900px);
+                                box-sizing: border-box;
+                                display: flex;
+                                flex-direction: column;
+                                justify-content: center;
+                            }
+                            h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); color: ${state.theme === 'girl' ? '#ff99cc' : '#33ccff'}; }
+                            h2 { font-size: clamp(1.5rem, 4vw, 2rem); color: #333; }
+                            p { font-size: clamp(1rem, 3vw, 1.4rem); color: #333; margin: 5px 0; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="certificate">
+                            <h1>${labels[state.lang].certificateTitle}</h1>
+                            <h2>${labels[state.lang].certificateLabel}</h2>
+                            <p>${textLines[0].replace('{name}', state.childName || 'Explorer')}</p>
+                            <p>${textLines[1]}</p>
+                            <p>${textLines[2]}</p>
+                            <p>${labels[state.lang].certificateDate}</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                const blob = new Blob([certificateHTML], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `certificate_${state.childName || 'explorer'}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const downloadCertificatePng = () => {
+                if (!elements.certificate) return;
+                const certificateClone = elements.certificate.cloneNode(true);
+                certificateClone.style.backgroundImage = `url('https://i.postimg.cc/9XN9d57w/fon_01.jpg')`;
+                certificateClone.style.backgroundSize = 'cover';
+                certificateClone.style.backgroundPosition = 'center';
+                certificateClone.style.width = '650px';
+                certificateClone.style.height = '900px';
+                certificateClone.style.position = 'absolute';
+                certificateClone.style.left = '-9999px';
+                const textLines = labels[state.lang].certificateText[state.theme];
+                certificateClone.innerHTML = `
+                    <h3 style="font-size: clamp(1.25rem, 3vw, 1.6rem); font-weight: bold; color: ${getComputedStyle(elements.certificateName).color}">${labels[state.lang].certificateLabel}</h3>
+                    <p style="font-size: clamp(0.9rem, 2.5vw, 1.4rem); color: ${getComputedStyle(elements.certificateText).color}; margin: 5px 0">${textLines[0].replace('{name}', state.childName || 'Explorer')}</p>
+                    <p style="font-size: clamp(0.9rem, 2.5vw, 1.4rem); color: ${getComputedStyle(elements.certificateText).color}; margin: 5px 0">${textLines[1]}</p>
+                    <p style="font-size: clamp(0.9rem, 2.5vw, 1.4rem); color: ${getComputedStyle(elements.certificateText).color}; margin: 5px 0">${textLines[2]}</p>
+                    <p style="font-size: clamp(0.9rem, 2.5vw, 1.4rem); color: ${getComputedStyle(elements.certificateDate).color}; margin: 5px 0">${labels[state.lang].certificateDate}</p>
+                `;
+                document.body.appendChild(certificateClone);
+
+                html2canvas(certificateClone, {
+                    width: 650,
+                    height: 900,
+                    scale: 2,
+                    backgroundColor: null,
+                    useCORS: true
+                }).then(canvas => {
+                    const a = document.createElement('a');
+                    a.href = canvas.toDataURL('image/png');
+                    a.download = `certificate_${state.childName || 'explorer'}.png`;
+                    a.click();
+                    document.body.removeChild(certificateClone);
+                }).catch(err => {
+                    console.error('Failed to generate PNG:', err);
+                    alert(labels[state.lang].en === 'English' ? 'Failed to generate PNG. Try downloading HTML instead.' : 'Не вдалося згенерувати PNG. Спробуйте завантажити HTML.');
+                });
+            };
+
+            if (elements.startButton) {
+                elements.startButton.addEventListener('click', () => {
+                    state.childName = elements.childNameInput ? elements.childNameInput.value.trim() : '';
+                    if (state.childName) {
+                        localStorage.setItem('childName', state.childName);
+                        state.screen = 'simulator';
+                        updateScreen();
+                        updateLabels();
+                        updateSpecimenImage();
+                        updateFilters();
+                        showInstructions();
+                    } else if (elements.childNameInput) {
+                        elements.childNameInput.placeholder = state.lang === 'en' ? 'Please enter your name!' : 'Введи своє ім’я!';
+                    }
+                });
+            }
+
+            if (elements.langEn) elements.langEn.addEventListener('click', handleLanguageChange);
+            if (elements.langUa) elements.langUa.addEventListener('click', handleLanguageChange);
+            if (elements.themeGirl) elements.themeGirl.addEventListener('click', handleThemeChange);
+            if (elements.themeBoy) elements.themeBoy.addEventListener('click', handleThemeChange);
+            if (elements.instructionsButton) elements.instructionsButton.addEventListener('click', showInstructions);
+            if (elements.closeInstructions) elements.closeInstructions.addEventListener('click', hideInstructions);
+            if (elements.completeLabButton) {
+                elements.completeLabButton.addEventListener('click', () => {
+                    state.screen = 'certificate';
+                    updateScreen();
+                    generateCertificate();
+                });
+            }
+            if (elements.downloadCertificatePng) elements.downloadCertificatePng.addEventListener('click', downloadCertificatePng);
+            if (elements.downloadCertificateHtml) elements.downloadCertificateHtml.addEventListener('click', downloadCertificateHtml);
+            if (elements.restartAdventure) {
+                elements.restartAdventure.addEventListener('click', () => {
+                    state = {
+                        lang: 'en',
+                        theme: 'boy',
+                        childName: '',
+                        specimen: 1,
+                        magnification: '3x',
+                        specimenFocus: 5,
+                        reticleFocus: 0.5,
+                        lampIntensity: 1.05,
+                        drag: { isDragging: false, startX: 0, startY: 0, translateX: 0, translateY: 0 },
+                        viewedSpecimens: new Set([1]),
+                        screen: 'welcome'
+                    };
+                    if (elements.childNameInput) elements.childNameInput.value = '';
+                    updateScreen();
+                    updateLabels();
+                });
+            }
+            if (elements.youtubeButton) {
+                elements.youtubeButton.addEventListener('click', () => {
+                    window.open('https://youtube.com/@23smartlessa32?si=gvbE-BC7Q1-LTyUzO', '_blank');
+                });
+            }
+
+            if (elements.microscopeView) {
+                elements.microscopeView.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    startDragging(e.clientX, e.clientY);
+                });
+                elements.microscopeView.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    startDragging(touch.clientX, touch.clientY);
+                });
+                elements.microscopeView.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    dragImage(touch.clientX, touch.clientY);
+                });
+                elements.microscopeView.addEventListener('touchend', stopDragging);
+                elements.microscopeView.addEventListener('touchcancel', stopDragging);
+            }
+
+            document.addEventListener('mousemove', (e) => {
+                dragImage(e.clientX, e.clientY);
+            });
+            document.addEventListener('mouseup', stopDragging);
+            document.querySelectorAll('.move-button').forEach(btn => {
+                btn.addEventListener('click', () => moveImage(btn.dataset.move));
+            });
+            document.querySelectorAll('.slide-button').forEach(btn => {
+                btn.addEventListener('click', handleSlideChange);
+            });
+            document.querySelectorAll('.magnification-button').forEach(btn => {
+                btn.addEventListener('click', handleMagnificationChange);
+            });
+            [elements.specimenFocus, elements.reticleFocus, elements.lampIntensity].filter(slider => slider).forEach(slider => {
+                slider.addEventListener('input', handleSliderChange);
+            });
+            document.addEventListener('keydown', (e) => {
+                switch (e.key) {
+                    case 'ArrowUp': moveImage('up'); break;
+                    case 'ArrowDown': moveImage('down'); break;
+                    case 'ArrowLeft': moveImage('left'); break;
+                    case 'ArrowRight': moveImage('right'); break;
+                }
+            });
+
+            if (document.querySelector('.magnification-button[data-mag="3x"]')) {
+                document.querySelector('.magnification-button[data-mag="3x"]').classList.add('bg-[var(--accent)]');
+            }
+
+            updateScreen();
+            updateLabels();
+        });
+    </script>
+</body>
+</html>
